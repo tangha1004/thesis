@@ -108,7 +108,7 @@ def test_epoch(data_list, model, labels=None, report_metrics=False, batch_size=3
     
     return prob, latent_mean.cpu().numpy()
 
-def save_checkpoint(model, checkpoint_path, filename="VAE.pt"):
+def save_checkpoint(model, checkpoint_path, filename="VAE_multi.pt"):
     os.makedirs(checkpoint_path, exist_ok=True)
     filename = os.path.join(checkpoint_path, filename)
     torch.save(model, filename)
@@ -242,16 +242,14 @@ def train_test(testonly,
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.2)
 
     if testonly == True:
-        load_checkpoint(model, os.path.join(modelpath, data_folder, 'VAE.pt'))
+        load_checkpoint(model, os.path.join(modelpath, data_folder, 'VAE_multi.pt'))
         test_labels = labels_trte[trte_idx["te"]]
         te_prob, latent_mean = test_epoch(data_test_list, model, batch_size=batch_size)
         
-        if num_class == 2 and 'auc' in metrics_dict:
-            print(f"AUC: {metrics_dict['auc']:.5f}")
-        else:
-            print("Test ACC: {:.5f}".format(accuracy_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))))
-            print("Test F1 weighted: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='weighted')))
-            print("Test F1 macro: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='macro')))
+
+        print("Test ACC: {:.5f}".format(accuracy_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))))
+        print("Test F1 weighted: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='weighted')))
+        print("Test F1 macro: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='macro')))
 
     else:    
 
