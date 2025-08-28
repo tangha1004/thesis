@@ -209,10 +209,10 @@ class VAE_multi(nn.Module):
         if len(view_list) > 2: 
             self.d_fc2_mRNA = self.fc_layer(level_3_dim[2], level_2_dim[2])
 
-        self.d_fc1_GE = self.fc_layer(level_2_dim[0], input_dim[0])
-        self.d_fc1_CNA = self.fc_layer(level_2_dim[1], input_dim[1])
+        self.d_fc1_GE = self.fc_layer(level_2_dim[0], input_dim[0], activation=2)
+        self.d_fc1_CNA = self.fc_layer(level_2_dim[1], input_dim[1], activation=2)
         if len(view_list) > 2: 
-            self.d_fc1_mRNA = self.fc_layer(level_2_dim[2], input_dim[2])
+            self.d_fc1_mRNA = self.fc_layer(level_2_dim[2], input_dim[2], activation=2)
     
         self.c_fc1 = self.fc_layer(latent_space_dim, classifier_1_dim)
         self.c_fc2 = self.fc_layer(classifier_1_dim, class_num, activation=0)
@@ -263,8 +263,6 @@ class VAE_multi(nn.Module):
             level_3_layer = torch.cat((GE_level3_layer, CNA_level3_layer), 1)
 
         level_4_layer = self.e_fc3(level_3_layer)
-        print(type(level_4_layer))
-        print(level_4_layer)
         latent_mean = self.e_fc4_mean(level_4_layer)
         latent_log_var = self.e_fc4_log_var(level_4_layer)
 
@@ -307,7 +305,6 @@ class VAE_multi(nn.Module):
         return level_2_layer
 
     def forward(self, data_list):
-        print(type(data_list))
         mean, log_var = self.encode(data_list)
         z = self.reparameterize(mean, log_var)
         classifier_x = mean
