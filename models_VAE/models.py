@@ -262,7 +262,8 @@ class VAE_multi(nn.Module):
             level_3_layer = torch.cat((GE_level3_layer, CNA_level3_layer), 1)
 
         level_4_layer = self.e_fc3(level_3_layer)
-
+        print(type(level_4_layer))
+        print(level_4_layer)
         latent_mean = self.e_fc4_mean(level_4_layer)
         latent_log_var = self.e_fc4_log_var(level_4_layer)
 
