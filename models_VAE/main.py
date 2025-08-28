@@ -20,9 +20,9 @@ if __name__ == "__main__":
     latent_space_dim = list(map(int, sys.argv[4].strip("[]").split(",")))
     level_2_dim = list(map(int, sys.argv[5].strip("[]").split(",")))
     level_3_dim = list(map(int, sys.argv[6].strip("[]").split(",")))
-    level_4_dim = list(map(int, sys.argv[7].strip("[]").split(","))) 
-    classifier_1_dim = list(map(int, sys.argv[8].strip("[]").split(",")))
-    class_num = list(map(int, sys.argv[9].strip("[]").split(",")))
+    level_4_dim = int(sys.argv[7]) 
+    classifier_1_dim = int(sys.argv[8]) 
+    class_num = int(sys.argv[9]) 
 
     print_hyper = str(sys.argv[10])
     verbose = str(sys.argv[11])
