@@ -243,7 +243,8 @@ class VAE_multi(nn.Module):
                     nn.Linear(in_dim, out_dim),
                     nn.BatchNorm1d(out_dim),
                     nn.ReLU())
-            return layer
+            
+        return layer
 
     def encode(self, data_list):
         GE_level2_layer = self.e_fc1_GE(data_list[0])
