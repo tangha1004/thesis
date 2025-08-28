@@ -41,7 +41,7 @@ def train_epoch(data_list, label, model, optimizer, k_view_list, k_kl, k_c, batc
         batch_data_list = []
         for data in data_list:
             batch_data_list.append(data[batch_indices])
-        print(batch_data_list)
+        # print(batch_data_list)
         batch_label = label[batch_indices]
 
         z, GE_x_hat, CNA_x_hat, mRNA_x_hat, mean, log_var, pred_y = model(batch_data_list)

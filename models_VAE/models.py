@@ -305,6 +305,7 @@ class VAE_multi(nn.Module):
         return level_2_layer
 
     def forward(self, data_list):
+        print(type(data_list))
         mean, log_var = self.encode(data_list)
         z = self.reparameterize(mean, log_var)
         classifier_x = mean
