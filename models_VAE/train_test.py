@@ -71,12 +71,42 @@ def train_epoch(data_list, label, model, optimizer, k_view_list, k_kl, k_c, batc
 
     return total_loss / num_batches
 
-def test_epoch(data_list, model):
+# def test_epoch(data_list, model):
+#     model.eval()
+#     with torch.no_grad():
+#         logit = model.infer(data_list)
+#         prob = F.softmax(logit, dim=1).data.cpu().numpy()
+#     return prob
+
+def test_epoch(data_list, model, labels=None, report_metrics=False, batch_size=32):
     model.eval()
+    
+    n_samples = data_list[0].shape[0]
+    all_pred_y = []
+    all_latent_mean = []
+    
     with torch.no_grad():
-        logit = model.infer(data_list)
-        prob = F.softmax(logit, dim=1).data.cpu().numpy()
-    return prob
+        for start_idx in range(0, n_samples, batch_size):
+            end_idx = min(start_idx + batch_size, n_samples)
+            batch_data = [x[start_idx:end_idx] for x in data_list]
+            
+            # Forward pass (handle both 2-view and 3-view cases)
+            if len(data_list) > 2:
+                _, _, _, _, mean, _, pred_y = model(batch_data)
+            else:
+                _, _, _, mean, _, pred_y = model(batch_data)
+                
+            all_pred_y.append(pred_y)
+            all_latent_mean.append(mean)
+    
+    # Concatenate batches
+    pred_y = torch.cat(all_pred_y, dim=0)
+    latent_mean = torch.cat(all_latent_mean, dim=0)
+    
+    # Convert to probabilities
+    prob = F.softmax(pred_y, dim=1).cpu().numpy()
+    
+    return prob, latent_mean.cpu().numpy()
 
 def save_checkpoint(model, checkpoint_path, filename="VAE.pt"):
     os.makedirs(checkpoint_path, exist_ok=True)
@@ -213,16 +243,15 @@ def train_test(testonly,
 
     if testonly == True:
         load_checkpoint(model, os.path.join(modelpath, data_folder, 'VAE.pt'))
-        te_prob = test_epoch(data_test_list, model)
-        if num_class == 2:
-            print("Test ACC: {:.5f}".format(accuracy_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))))
-            print("Test F1: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))))
-            print("Test AUC: {:.5f}".format(roc_auc_score(labels_trte[trte_idx["te"]], te_prob[:,1])))
+        test_labels = labels_trte[trte_idx["te"]]
+        te_prob, latent_mean = test_epoch(data_test_list, model, batch_size=batch_size)
+        
+        if num_class == 2 and 'auc' in metrics_dict:
+            print(f"AUC: {metrics_dict['auc']:.5f}")
         else:
             print("Test ACC: {:.5f}".format(accuracy_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))))
             print("Test F1 weighted: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='weighted')))
             print("Test F1 macro: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='macro')))
-
 
     else:    
 
@@ -236,17 +265,15 @@ def train_test(testonly,
             # train_epoch(data_tr_list, labels_tr_tensor, model, optimizer)
             train_epoch(data_tr_list, labels_tr_tensor, model, optimizer, k_view_list, k_kl, k_c, batch_size)
             scheduler.step()
-            te_prob = test_epoch(data_test_list, model)
-            te_acc = accuracy_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))
+            test_labels = labels_trte[trte_idx["te"]]
+            te_prob, _ = test_epoch(data_test_list, model, batch_size=batch_size)
+    
+
             if verbose == 'True':
                 if epoch % test_interval == 0:
                     print("\nTest: Epoch {:d}".format(epoch))
-                    if num_class == 2:
-                        print("Test F1: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))))
-                        print("Test AUC: {:.5f}".format(roc_auc_score(labels_trte[trte_idx["te"]], te_prob[:,1])))
-                    else:
-                        print("Test F1 weighted: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='weighted')))
-                        print("Test F1 macro: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='macro')))
+                    print("Test F1 weighted: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='weighted')))
+                    print("Test F1 macro: {:.5f}".format(f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1), average='macro')))
             if patience is not None:
                 if num_class == 2:
                     score = f1_score(labels_trte[trte_idx["te"]], te_prob.argmax(1))
