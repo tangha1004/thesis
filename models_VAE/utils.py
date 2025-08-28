@@ -8,8 +8,13 @@ cuda = True if torch.cuda.is_available() else False
 def save_model_dict(folder, model_dict):
     if not os.path.exists(folder):
         os.makedirs(folder)
-    for module in model_dict:
-        torch.save(model_dict[module].state_dict(), os.path.join(folder, module+".pt"))
+    if isinstance(model_dict, dict):
+        # It's a dictionary of models
+        for module in model_dict:
+            torch.save(model_dict[module], os.path.join(folder, module + '.pt'))
+    else:
+        # It's a single model
+        torch.save(model_dict, os.path.join(folder, 'VAE_multi.pt'))
 
 def load_model_dict(folder, model_dict):
     for module in model_dict:

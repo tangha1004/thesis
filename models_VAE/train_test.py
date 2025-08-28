@@ -223,8 +223,11 @@ def train_test(testonly,
                postfix_tr='_tr',
                postfix_te='_val',
                patience=7,
-               verbose=False):
-    
+               verbose=False,seed=42):
+    if seed is not None:
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
     step_size = 500
 
     data_tr_list, data_test_list, trte_idx, labels_trte = prepare_trte_data(data_folder, view_list, postfix_tr, postfix_te)

@@ -1,6 +1,10 @@
 import sys
 from train_test import train_test
 from utils import save_model_dict
+import os
+import random
+import numpy as np
+import torch
 
 """
     Paramaters for VAE_multi: 
@@ -12,7 +16,25 @@ from utils import save_model_dict
     Parameters for train_epoch:
         data_list, label, model, optimizer, k_view_list, k_kl, k_c, batch_size
 """
+cuda = True if torch.cuda.is_available() else False
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f'cuda: {cuda}')
 
+def set_seed(seed: int = 42) -> None:
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    # When running on the CuDNN backend, two further options must be set
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # Set a fixed value for the hash seed
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    print(f"Random seed set as {seed}")
+
+# Set seed immediately
+rseed = 42
+set_seed(rseed)
 if __name__ == "__main__":
     view_list = list(map(int, sys.argv[1].strip("[]").split(",")))
     hidden_dim = list(map(int, sys.argv[2].strip("[]").split(",")))
