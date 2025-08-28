@@ -17,7 +17,7 @@ if __name__ == "__main__":
     view_list = list(map(int, sys.argv[1].strip("[]").split(",")))
     hidden_dim = list(map(int, sys.argv[2].strip("[]").split(",")))
     input_dim = list(map(int, sys.argv[3].strip("[]").split(",")))
-    latent_space_dim = list(map(int, sys.argv[4].strip("[]").split(",")))
+    latent_space_dim = int(sys.argv[4])
     level_2_dim = list(map(int, sys.argv[5].strip("[]").split(",")))
     level_3_dim = list(map(int, sys.argv[6].strip("[]").split(",")))
     level_4_dim = int(sys.argv[7]) 
