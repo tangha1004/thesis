@@ -21,14 +21,14 @@ def train_epoch(data_list, label, model, optimizer, k_view_list, k_kl, k_c, batc
         assume all the matrices passed into this function are tensors on gpu
     """
     model.train()
-    # train_methy_recon = 0
-    # train_expr_recon = 0
-    # train_kl = 0
-    # train_classifier = 0
-    # train_correct_num = 0
-    # train_total_loss = 0
+    train_methy_recon = 0
+    train_expr_recon = 0
+    train_kl = 0
+    train_classifier = 0
+    train_correct_num = 0
+    train_total_loss = 0
 
-    print(data_list)
+
     n_samples = len(label)
     indices = torch.randperm(n_samples)
     total_loss = 0

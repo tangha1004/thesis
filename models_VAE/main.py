@@ -123,8 +123,7 @@ if __name__ == "__main__":
         k_kl=k_kl, 
         k_c=k_c,
         patience=patience,
-        verbose=verbose,
-        hidden_dim=hidden_dim
+        verbose=verbose
     )
 
     save_model_dict(model_path, model_dict)
