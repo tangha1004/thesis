@@ -220,6 +220,7 @@ class VAE_multi(nn.Module):
     def fc_layer(self, in_dim, out_dim, activation=1, dropout=False, dropout_p=0.5):
         print('DEBUG', type(in_dim))
         print('DEBUG', type(out_dim))
+        print(out_dim)
 
         if activation == 0:
             layer = nn.Sequential(
