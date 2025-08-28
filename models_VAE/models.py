@@ -218,6 +218,9 @@ class VAE_multi(nn.Module):
         self.c_fc2 = self.fc_layer(classifier_1_dim, class_num, activation=0)
 
     def fc_layer(self, in_dim, out_dim, activation=1, dropout=False, dropout_p=0.5):
+        print('DEBUG', type(in_dim))
+        print('DEBUG', type(out_dim))
+
         if activation == 0:
             layer = nn.Sequential(
                 nn.Linear(in_dim, out_dim),
