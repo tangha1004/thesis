@@ -19,10 +19,12 @@ def save_model_dict(folder, model_dict):
 def load_model_dict(folder, model_dict):
     for module in model_dict:
         if os.path.exists(os.path.join(folder, module+".pt")):
-#            print("Module {:} loaded!".format(module))
-            model_dict[module].load_state_dict(torch.load(os.path.join(folder, module+".pt"), map_location="cuda:{:}".format(torch.cuda.current_device())))
+            # Set weights_only=False to use the old behavior
+            model_dict[module].load_state_dict(torch.load(
+                os.path.join(folder, module+".pt"), 
+                map_location="cuda:{:}".format(torch.cuda.current_device()),
+                weights_only=False
+            ))
         else:
             print("WARNING: Module {:} from model_dict is not loaded!".format(module))
-        if cuda:
-            model_dict[module].cuda()    
     return model_dict
