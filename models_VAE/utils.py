@@ -162,6 +162,17 @@ def load_model_dict(omics, cancers, main_cancer, num_subtypes, data_dir, result_
     
     return clf
 
+def save_model_dict(folder, model_dict):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    if isinstance(model_dict, dict):
+        # It's a dictionary of models
+        for module in model_dict:
+            torch.save(model_dict[module], os.path.join(folder, module + '.pt'))
+    else:
+        # It's a single model
+        torch.save(model_dict, os.path.join(folder, 'subtype_model.pt'))
+
 def evaluate(model, testdata, idx2class, result_dir):
     model.eval()
     with torch.no_grad():
