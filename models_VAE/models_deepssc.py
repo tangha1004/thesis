@@ -37,12 +37,23 @@ def classifier_loss(pred_y, y):
     loss = F.cross_entropy(pred_y, y, reduction='sum')
     return loss
 
+def init_model_dict(view_list, input_dim, hidden_dims, hidden_dim_cls, num_class, dropout_rate = 0.5, latent_dim=128, dropout_rate_cls = 0.3):
+    vae_models = []
+    for i in range(len(view_list)):
+        vae_single_omic = VariationalAutoencoder(input_dim, hidden_dims, dropout_rate, latent_dim)
+        vae_models.append(vae_single_omic)
+
+    model_dict = {}
+    model_dict['subtype_model'] = Subtyping_model(vae_models, hidden_dim_cls, num_class, dropout_rate_cls)
+    model_dict['subtype_model'].apply(xavier_init)
+    return model_dict
+    
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, input_dim_expr, hidden_dims, latent_dim=128):
+    def __init__(self, input_dim, hidden_dims, dropout_rate = 0.5, latent_dim=128):
         super(VariationalAutoencoder, self).__init__()
         encoder_layers = [
-            nn.Dropout(0.5),
-            nn.Linear(input_dim_expr, hidden_dims[0]),
+            nn.Dropout(dropout_rate),
+            nn.Linear(input_dim, hidden_dims[0]),
             nn.BatchNorm1d(hidden_dims[0]),
             nn.ELU()
         ]
@@ -61,7 +72,7 @@ class VariationalAutoencoder(nn.Module):
                 nn.Linear(hidden_dims[i], hidden_dims[i-1]),
                 nn.ELU()
             ])
-        decoder_layers.append(nn.Linear(hidden_dims[0], input_dim_expr))
+        decoder_layers.append(nn.Linear(hidden_dims[0], input_dim))
         self.decoder = nn.Sequential(*decoder_layers)
 
     def encode(self, x):
@@ -94,30 +105,21 @@ class VariationalAutoencoder(nn.Module):
         kl_loss_val = kl_loss(mean, log_var)
         total_loss = recon_loss_val + kl_loss_val
         return total_loss.mean()
-
-def create_autoencoder(omic, input_dim_expr, n_samples=5, dec_var=0.5):
-    if omic == 'meth':
-        return VariationalAutoencoder(input_dim_expr, [1024, 512], n_samples=n_samples, dec_var=dec_var)
-    elif omic == 'ge':
-        return VariationalAutoencoder(input_dim_expr, [1024, 512], n_samples=n_samples, dec_var=dec_var)
-    elif omic == 'cna':
-        return VariationalAutoencoder(input_dim_expr, [1024, 256], n_samples=n_samples, dec_var=dec_var)
-    else:
-        return VariationalAutoencoder(input_dim_expr, [1024, 512], n_samples=n_samples, dec_var=dec_var)
+    
 
 class Subtyping_model(nn.Module):
-    def __init__(self, vae_models, subtypes):
+    def __init__(self, vae_models, hidden_dim_cls, num_class, dropout_rate_cls = 0.3):
         super(Subtyping_model, self).__init__()
         self.vae_models = nn.ModuleList(vae_models)
         
         total_latent_dim = sum([model.latent_dim for model in vae_models])
         
         self.classifier = nn.Sequential(
-            nn.Linear(total_latent_dim, 512),
-            nn.BatchNorm1d(512),
+            nn.Linear(total_latent_dim, hidden_dim_cls),
+            nn.BatchNorm1d(hidden_dim_cls),
             nn.ELU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, subtypes)
+            nn.Dropout(dropout_rate_cls),
+            nn.Linear(hidden_dim_cls, num_class)
         )
         
     def forward(self, *inputs):
@@ -148,13 +150,3 @@ class Subtyping_model(nn.Module):
         concatenated_latent = torch.hstack(latent_vectors)
         
         return concatenated_latent, latent_vectors, means, log_vars
-
-def create_autoencoder(omic, input_dim_expr):
-    if omic == 'meth':
-        return VariationalAutoencoder(input_dim_expr, [1024, 512])
-    elif omic == 'ge':
-        return VariationalAutoencoder(input_dim_expr, [1024, 512])
-    elif omic == 'cna':
-        return VariationalAutoencoder(input_dim_expr, [1024, 256])
-    else:
-        return VariationalAutoencoder(input_dim_expr, [1024, 512])
