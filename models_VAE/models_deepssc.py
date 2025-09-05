@@ -1,6 +1,9 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from utils import prepare_data
+import os
 
 def xavier_init(m):
     if type(m) == nn.Linear:
@@ -47,6 +50,46 @@ def init_model_dict(view_list, input_dim, hidden_dims, hidden_dim_cls, num_class
     model_dict['subtype_model'] = Subtyping_model(vae_models, hidden_dim_cls, num_class, dropout_rate_cls)
     model_dict['subtype_model'].apply(xavier_init)
     return model_dict
+
+def load_model_dict(omics, cancers, main_cancer, num_subtypes, data_dir, result_dir, batch_size, hidden_dims=[1024, 512], hidden_dim_cls=512, dropout_rate=0.5, latent_dim=128, dropout_rate_cls=0.3, n_samples=5, dec_var=0.5, seed=42):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+
+    if torch.cuda.is_available():
+        dev = "cuda:0"
+    else:
+        dev = "cpu"
+    device = torch.device(dev)
+
+    loader, dataset, label_weight, idx2class = prepare_data(data_dir, batch_size, omics, cancers, main_cancer, num_subtypes, print_info=True)
+    test_clf_ds, val_clf_ds, val_omics_ds = dataset
+    vae_models = []
+    for i, omic in enumerate(omics):
+        input_dim = len(val_clf_ds[0][i])
+        vae_model = VariationalAutoencoder(input_dim, hidden_dims, dropout_rate, latent_dim)
+        vae_model.n_samples = n_samples
+        vae_model.dec_var = dec_var
+        vae_models.append(vae_model)
+
+    clf = Subtyping_model(vae_models, hidden_dim_cls, num_subtypes, dropout_rate_cls)
+    clf.to(device)
+
+    checkpoint_path = os.path.join(result_dir, 'subtype_model.pt')
+    if os.path.exists(checkpoint_path):
+        clf.load_state_dict(torch.load(checkpoint_path))        
+    else:
+        print(f"Checkpoint file '{checkpoint_path}' does not exist.")
+    
+    return clf
+
+def save_model_dict(folder, model_dict):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    if isinstance(model_dict, dict):
+        for module in model_dict:
+            torch.save(model_dict[module], os.path.join(folder, module + '.pt'))
+    else:
+        torch.save(model_dict, os.path.join(folder, 'subtype_model.pt'))
     
 class VariationalAutoencoder(nn.Module):
     def __init__(self, input_dim, hidden_dims, dropout_rate = 0.5, latent_dim=128):
