@@ -11,8 +11,7 @@ from sklearn import metrics
 import copy
 from models_deepssc import VariationalAutoencoder, Subtyping_model
 
-class EarlyStopping:
-    
+class EarlyStopping:  
     def __init__(self, patience=7, verbose=False, delta=0.001):
         
         self.patience = patience
@@ -139,8 +138,6 @@ def load_model_dict(omics, cancers, main_cancer, num_subtypes, data_dir, result_
 
     loader, dataset, label_weight, idx2class = prepare_data(data_dir, batch_size, omics, cancers, main_cancer, num_subtypes, print_info=True)
     test_clf_ds, val_clf_ds, val_omics_ds = dataset
-
-    # Create VAE models with the specified parameters
     vae_models = []
     for i, omic in enumerate(omics):
         input_dim = len(val_clf_ds[0][i])
@@ -149,12 +146,10 @@ def load_model_dict(omics, cancers, main_cancer, num_subtypes, data_dir, result_
         vae_model.dec_var = dec_var
         vae_models.append(vae_model)
 
-    # Create Subtyping_model
     clf = Subtyping_model(vae_models, hidden_dim_cls, num_subtypes, dropout_rate_cls)
     clf.to(device)
 
-    # Load checkpoint if exists
-    checkpoint_path = os.path.join(result_dir, 'checkpoint.pt')
+    checkpoint_path = os.path.join(result_dir, 'subtype_model.pt')
     if os.path.exists(checkpoint_path):
         clf.load_state_dict(torch.load(checkpoint_path))        
     else:

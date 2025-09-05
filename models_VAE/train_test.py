@@ -160,5 +160,5 @@ def train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, 
     plt.legend()
     evaluate(clf, val_clf_ds, idx2class, result_dir)
     # save model weights
-    torch.save(clf.state_dict(), os.path.join(result_dir, 'checkpoint.pt'))
+    torch.save(clf.state_dict(), os.path.join(result_dir, 'subtype_model.pt'))
     print('Please check results in your result folder!')
