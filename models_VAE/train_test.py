@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 from utils import EarlyStopping, create_autoencoder, prepare_data, evaluate
+from models_deepssc import Subtyping_model
 
 def train_clf(model, class_weight, train_loader, val_dataset, epoch, patience, lr_clf, lr_ae, wd_clf, wd_ae):
 
