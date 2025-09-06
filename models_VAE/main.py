@@ -39,7 +39,7 @@ if __name__ == "__main__":
     num_class = int(sys.argv[12])
     dropout_rate_cls = float(sys.argv[13])
     epoch_pretrain_vaes = list(map(int, sys.argv[14].strip("[]").split(",")))
-    lr_pretrain_vaes = list(map(int, sys.argv[15].strip("[]").split(",")))
+    lr_pretrain_vaes = list(map(float, sys.argv[15].strip("[]").split(",")))
     epoch_cls = int(sys.argv[16])
     patience = int(sys.argv[17])
     lr_clf = float(sys.argv[18])
