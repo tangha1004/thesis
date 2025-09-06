@@ -12,7 +12,6 @@ import copy
 
 class EarlyStopping:  
     def __init__(self, patience=7, verbose=False, delta=0.001):
-        
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -24,9 +23,7 @@ class EarlyStopping:
         self.delta = delta
 
     def __call__(self, metric_higher_better, epoch, model_dict):
-
         score = metric_higher_better
-
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(metric_higher_better, epoch, model_dict)
@@ -52,7 +49,6 @@ def prepare_data(data_dir, batch_size, omics, cancers, main_cancer, num_subtypes
     X_val_omics = []
     X_test_omics = []
     train_omics_unlabeled = []
-
     for i, omic in enumerate(omics):
         train_one_omic_unlabeled = []
         for cancer in cancers:

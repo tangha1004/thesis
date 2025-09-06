@@ -40,10 +40,10 @@ def classifier_loss(pred_y, y):
     loss = F.cross_entropy(pred_y, y, reduction='sum')
     return loss
 
-def init_model_dict(view_list, input_dim, hidden_dims, hidden_dim_cls, num_class, dropout_rate = 0.5, latent_dim=128, dropout_rate_cls = 0.3):
+def init_model_dict(view_list, input_dim, hidden_dims, hidden_dim_cls, num_class, n_samples, dec_var, latent_dim=128, dropout_rate_cls = 0.3):
     vae_models = []
     for i in range(len(view_list)):
-        vae_single_omic = VariationalAutoencoder(input_dim, hidden_dims, dropout_rate, latent_dim)
+        vae_single_omic = VariationalAutoencoder(input_dim, hidden_dims, n_samples, dec_var, latent_dim)
         vae_models.append(vae_single_omic)
 
     model_dict = {}
@@ -66,9 +66,7 @@ def load_model_dict(omics, cancers, main_cancer, num_subtypes, data_dir, result_
     vae_models = []
     for i, omic in enumerate(omics):
         input_dim = len(val_clf_ds[0][i])
-        vae_model = VariationalAutoencoder(input_dim, hidden_dims, dropout_rate, latent_dim)
-        vae_model.n_samples = n_samples
-        vae_model.dec_var = dec_var
+        vae_model = VariationalAutoencoder(input_dim, hidden_dims, n_samples, dec_var, latent_dim)
         vae_models.append(vae_model)
 
     clf = Subtyping_model(vae_models, hidden_dim_cls, num_subtypes, dropout_rate_cls)
@@ -92,10 +90,13 @@ def save_model_dict(folder, model_dict):
         torch.save(model_dict, os.path.join(folder, 'subtype_model.pt'))
     
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, input_dim, hidden_dims, dropout_rate = 0.5, latent_dim=128):
+    def __init__(self, input_dim, hidden_dims, n_samples, dec_var, latent_dim=128):
+        self.input_dim = input_dim
+        self.hidden_dims = hidden_dims
+        self.n_samples = n_samples
+        self.dec_var = dec_var
         super(VariationalAutoencoder, self).__init__()
         encoder_layers = [
-            nn.Dropout(dropout_rate),
             nn.Linear(input_dim, hidden_dims[0]),
             nn.BatchNorm1d(hidden_dims[0]),
             nn.ELU()

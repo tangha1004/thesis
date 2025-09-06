@@ -7,7 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 from utils import EarlyStopping, prepare_data, evaluate
-from models_deepssc import Subtyping_model, VariationalAutoencoder, save_model_dict
+from models_deepssc import Subtyping_model, VariationalAutoencoder, save_model_dict, init_model_dict
+
 def train_clf(model, class_weight, train_loader, val_dataset, epoch, patience, lr_clf, lr_vae, wd_clf, wd_ae):
     loss_fn = nn.CrossEntropyLoss(weight=class_weight)
     param_groups = [{'params': model.classifier.parameters(), 'lr': lr_clf, 'weight_decay': wd_clf}]
@@ -103,9 +104,22 @@ def train_VAE(model, train_loader, val_dataset, epoch, lr, n_samples=5, dec_var=
 
     return train_loss_his, val_loss_his
 
-def train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, batch_size, lr_omics, n_epoch_omics, 
-               lr_AE, lr_clf, wd_AE, wd_clf, patience, seed=42, n_samples=5, dec_var=0.5):
-    """Train VAE models and Subtyping_model"""
+# def train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, batch_size, lr_omics, n_epoch_omics, 
+#                lr_AE, lr_clf, wd_AE, wd_clf, patience, seed=42, n_samples=5, dec_var=0.5):
+def train_test(testonly,
+               data_dir, result_dir, 
+               view_list, 
+               omics, cancers, main_cancer, num_subtypes,
+               input_dim, hidden_dims, latent_dim, 
+               hidden_dim_cls, num_class,
+               n_epoch_omics, lr_omics, batch_size,
+               n_samples, dec_var,
+               n_epoch_classifier,
+               dropout_rate_cls = 0.3,
+               patience=10,
+               postfix_tr='_tr',
+               postfix_te='_val',
+               verbose=False, seed=42):
     torch.manual_seed(seed)
     np.random.seed(seed)
     
@@ -129,26 +143,33 @@ def train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, 
         os.makedirs(result_dir)
     except:
         print('Result directory already exists!')
+
+    model_dict = init_model_dict(view_list, input_dim, 
+                                 hidden_dims, hidden_dim_cls, num_class, n_samples, dec_var, latent_dim, dropout_rate_cls)
+    model = model_dict['subtype_model']
+    param_groups = [{'params': model.classifier.parameters(), 'lr': lr, 'weight_decay': 1e-4}]
+    for vae_model in model.vae_models:
+        param_groups.append({'params': vae_model.parameters(), 'lr': lr, 'weight_decay': 1e-4})
     
-    # Train VAE models for each omic
+    optimizer = torch.optim.Adam(param_groups)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.2)
+    
+    if torch.cuda.is_available():
+        model = model.cuda()
+    
     vae_models = []
     for i, omic in enumerate(omics):
         print(f'Training VAE for {omic.upper()} data...')
         input_dim = len(val_clf_ds[0][i])
-        hidden_dims = [1024, 512]  # You can adjust these dimensions as needed
-        
-        # Create and initialize VAE model
+        hidden_dims = [1024, 512]  
+
         vae_model = VariationalAutoencoder(input_dim, hidden_dims, dropout_rate=0.5, latent_dim=128)
-        # Set Monte Carlo sampling parameters
         vae_model.n_samples = n_samples
         vae_model.dec_var = dec_var
         vae_model.to(device)
         
-        # Train VAE model
-        train_his, val_his = train_VAE(vae_model, train_omic_AE_dl[i], val_omics_ds[i], 
-                                      n_epoch_omics[i], lr_omics[i], n_samples, dec_var)
+        train_his, val_his = train_VAE(vae_model, train_omic_AE_dl[i], val_omics_ds[i], n_epoch_omics[i], lr_omics[i], n_samples, dec_var)
         
-        # Plot training history
         plt.figure()
         plt.plot(train_his, label='train')
         plt.plot(val_his, label='validation')
@@ -168,7 +189,7 @@ def train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, 
     # Train classifier using VAE latent representations
     clf_train_his, clf_val_his = train_clf(clf, label_weight, 
                                          train_clf_dl, val_clf_ds, 
-                                         200, patience, lr_clf, 
+                                         n_epoch_classifier, patience, lr_clf, 
                                          lr_AE, wd_clf, wd_AE)
     
     plt.figure()
@@ -189,3 +210,4 @@ def train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, 
     print('Results saved in the result folder!')
     
     return clf
+

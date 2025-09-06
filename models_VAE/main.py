@@ -1,5 +1,5 @@
 import sys
-from train_test import train_test
+from models_VAE.train_test_deepssc import train_test
 
 if __name__ == "__main__":
 
@@ -22,5 +22,7 @@ if __name__ == "__main__":
     main_cancer = str(sys.argv[14]) 
     num_subtypes = int(sys.argv[15])
 
-    train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, batch_size, lr_omics, n_epoch_omics,
-               lr_AE, lr_clf, wd_AE, wd_clf, patience, seed)
+    train_test(data_dir, result_dir, 
+               cancers, main_cancer, num_subtypes, omics,     
+               batch_size, lr_omics, n_epoch_omics, 
+               lr_AE, lr_clf, wd_AE, wd_clf, patience, seed=42, n_samples=5, dec_var=0.5)
