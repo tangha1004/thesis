@@ -7,9 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 from utils import EarlyStopping, prepare_data, evaluate
-from models_deepssc import Subtyping_model, VariationalAutoencoder, save_model_dict, init_model_dict
-
-
+from models_deepssc import Subtyping_model, VariationalAutoencoder, save_model_dict
 def train_VAE(model, train_loader, val_dataset, epoch, lr):
     optimizer = optim.Adam(model.parameters(), lr=lr)
     train_loss_his = []
