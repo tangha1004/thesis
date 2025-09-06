@@ -11,30 +11,6 @@ def xavier_init(m):
         if m.bias is not None:
            m.bias.data.fill_(0.0)
 
-def recon_loss(recon_x, x):
-    loss = F.binary_cross_entropy(recon_x, x, reduction='sum')
-    return loss
-
-def monte_carlo_recon_loss(mean, log_var, x, decoder, n_samples=5, dec_var=0.5):
-    batch_size = x.size(0)
-    latent_dim = mean.size(1)
-    input_dim = x.size(1)
-
-    std = torch.exp(0.5 * log_var)
-    eps = torch.randn(n_samples, batch_size, latent_dim, device=mean.device)
-
-    z = eps * std.unsqueeze(0) + mean.unsqueeze(0)
-    z_decode = z.view(-1, latent_dim)
-    x_hat = decoder(z_decode)
-    x_hat = x_hat.view(n_samples, batch_size, input_dim)
-    x_expanded = x.unsqueeze(0)
-    se = 0.5 * (1/dec_var) * (x_hat - x_expanded) ** 2
-    se = se.sum(dim=2)
-    return se.sum(dim=0)
-
-def kl_loss(mean, log_var):
-    loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-    return loss
 
 def classifier_loss(pred_y, y):
     loss = F.cross_entropy(pred_y, y, reduction='sum')
@@ -90,7 +66,7 @@ def save_model_dict(folder, model_dict):
         torch.save(model_dict, os.path.join(folder, 'subtype_model.pt'))
     
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, input_dim, hidden_dims, n_samples, dec_var, latent_dim=128):
+    def __init__(self, input_dim, hidden_dims, n_samples, dec_var, latent_dim):
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
         self.n_samples = n_samples
@@ -138,15 +114,37 @@ class VariationalAutoencoder(nn.Module):
         z = self.reparameterize(mean, log_var)
         recon_x = self.decode(z)
         return z, recon_x, mean, log_var
+
+    def recon_loss(self, recon_x, x):
+        loss = F.binary_cross_entropy(recon_x, x, reduction='sum')
+        return loss
+
+    def monte_carlo_recon_loss(self, mean, log_var, x):
+        batch_size = x.size(0)
+        latent_dim = mean.size(1)
+        input_dim = x.size(1)
+
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn(self.n_samples, batch_size, latent_dim, device=mean.device)
+
+        z = eps * std.unsqueeze(0) + mean.unsqueeze(0)
+        z_decode = z.view(-1, latent_dim)
+        x_hat = self.decoder(z_decode)
+        x_hat = x_hat.view(self.n_samples, batch_size, input_dim)
+        x_expanded = x.unsqueeze(0)
+        se = 0.5 * (1/self.dec_var) * (x_hat - x_expanded) ** 2
+        se = se.sum(dim=2)
+        return se.sum(dim=0)
+
+    def kl_loss(self, mean, log_var):
+        loss = -0.5 * torch.sum(1 + log_var - mean ** 2 - log_var.exp())
+        return loss
     
     def get_loss(self, x):
         mean, log_var = self.encode(x)
 
-        recon_loss_val = monte_carlo_recon_loss(
-            mean, log_var, x, self.decode, 
-            n_samples=self.n_samples, dec_var=self.dec_var
-        )
-        kl_loss_val = kl_loss(mean, log_var)
+        recon_loss_val = self.monte_carlo_recon_loss(mean, log_var, x)
+        kl_loss_val = self.kl_loss(mean, log_var)
         total_loss = recon_loss_val + kl_loss_val
         return total_loss.mean()
     

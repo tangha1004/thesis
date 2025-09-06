@@ -9,13 +9,39 @@ import copy
 from utils import EarlyStopping, prepare_data, evaluate
 from models_deepssc import Subtyping_model, VariationalAutoencoder, save_model_dict, init_model_dict
 
-def train_clf(model, class_weight, train_loader, val_dataset, epoch, patience, lr_clf, lr_vae, wd_clf, wd_ae):
-    loss_fn = nn.CrossEntropyLoss(weight=class_weight)
-    param_groups = [{'params': model.classifier.parameters(), 'lr': lr_clf, 'weight_decay': wd_clf}]
 
+def train_VAE(model, train_loader, val_dataset, epoch, lr):
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    train_loss_his = []
+    val_loss_his = []
+    for ep in range(epoch):
+        model.train()
+        tmp_train_total_loss = 0.0
+        nb = 0
+        for data in train_loader:
+            x_data_train = data[0].cuda()
+            loss = model.get_loss(x_data_train)
+            tmp_total_loss += loss
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            nb += 1
+        train_loss_his.append(tmp_train_total_loss/nb)
+
+        model.eval()
+        with torch.no_grad():
+            x_data_val = val_dataset[:][0].cuda()
+            val_loss = model.get_loss(x_data_val)
+        val_loss_his.append(val_loss)
+
+    return train_loss_his, val_loss_his
+
+def train_clf(model, class_weight, train_loader, val_dataset, epoch, patience, lr_clf, lr_vae, wd_clf, wd_ae):
+    param_groups = [{'params': model.classifier.parameters(), 'lr': lr_clf, 'weight_decay': wd_clf}]
     for vae_model in model.vae_models:
         param_groups.append({'params': vae_model.parameters(), 'lr': lr_vae, 'weight_decay': wd_ae})
-    
+
+    loss_fn = nn.CrossEntropyLoss(weight=class_weight)
     opt = optim.Adam(param_groups)
     early_stopping = EarlyStopping(patience=patience, verbose=True)
     
@@ -26,21 +52,18 @@ def train_clf(model, class_weight, train_loader, val_dataset, epoch, patience, l
     
     for ep in range(epoch):
         model.train()
-        
         train_loss = 0.0
         train_f1_macro = 0.0
         nb = 0
+
         for data in train_loader:
             x_data = [d.cuda() for d in data[:-1]]
             yb = data[-1].cuda()
-            
-            # Forward pass through Subtyping_model
             preds = model(*x_data)
             loss = loss_fn(preds, yb)
-            
+            opt.zero_grad()
             loss.backward()
             opt.step()
-            opt.zero_grad()
             
             _, preds_label = torch.max(preds.data, dim=-1)
             train_loss += loss.item()
@@ -74,55 +97,35 @@ def train_clf(model, class_weight, train_loader, val_dataset, epoch, patience, l
             break
             
     return (train_loss_his, train_f1_macro_his), (val_loss_his, val_f1_macro_his)
-    
-def train_VAE(model, train_loader, val_dataset, epoch, lr, n_samples=5, dec_var=0.5):
-    opt = optim.Adam(model.parameters(), lr=lr)
-    train_loss_his = []
-    val_loss_his = []
 
-    for ep in range(epoch):
-        model.train()
-        train_loss = 0.0
-        nb = 0
-        for xb in train_loader:
-            xb = xb[0].cuda()
-            loss = model.get_loss(xb)
-            loss.backward()
-            opt.step()
-            opt.zero_grad()
-            
-            train_loss += loss.item()
-            nb += 1
-        
-        train_loss_his.append(train_loss/nb)
-        model.eval()
-        with torch.no_grad():
-            xb = val_dataset[:][0].cuda()
-            val_loss = model.get_loss(xb)
-        val_loss_his.append(val_loss.item())
-        print(f'Epoch {ep+1}/{epoch}, Train Loss: {train_loss/nb:.4f}, Val Loss: {val_loss.item():.4f}')
+'''
+    Step 1: prepare data
+       def prepare_data(data_dir, batch_size, batch_size_clf, omics, num_subtypes, print_info=True)
+    Step 2: init model
+        class VariationalAutoencoder(nn.Module):
+            def __init__(self, input_dim, hidden_dims, n_samples, dec_var, latent_dim)
 
-    return train_loss_his, val_loss_his
+        class Subtyping_model(nn.Module):
+            def __init__(self, vae_models, hidden_dim_cls, num_class, dropout_rate_cls = 0.3)
 
-# def train_test(cancers, main_cancer, num_subtypes, omics, data_dir, result_dir, batch_size, lr_omics, n_epoch_omics, 
-#                lr_AE, lr_clf, wd_AE, wd_clf, patience, seed=42, n_samples=5, dec_var=0.5):
-def train_test(testonly,
-               data_dir, result_dir, 
-               view_list, 
-               omics, cancers, main_cancer, num_subtypes,
-               input_dim, hidden_dims, latent_dim, 
-               hidden_dim_cls, num_class,
-               n_epoch_omics, lr_omics, batch_size,
-               n_samples, dec_var,
-               n_epoch_classifier,
-               dropout_rate_cls = 0.3,
-               patience=10,
-               postfix_tr='_tr',
-               postfix_te='_val',
-               verbose=False, seed=42):
+    Step 3: pretraining vae
+        def train_VAE(model, train_loader, val_dataset, epoch, lr)
+
+    Step 4: def train_clf(model, class_weight, train_loader, val_dataset, epoch, patience, lr_clf, lr_vae, wd_clf, wd_ae)
+'''
+
+def train_test(data_dir, result_dir, 
+               batch_size, batch_size_clf, view_list, num_subtypes, 
+               hidden_dims_omics, n_samples, dec_vars, latent_dims,
+               hidden_dim_cls, num_class, dropout_rate_cls,
+               epoch_pretrain_vaes, lr_pretrain_vaes,
+               epoch_cls, patience, lr_clf, lr_vae, wd_clf, wd_vae,
+            #    postfix_tr='_tr',
+            #    postfix_te='_val',
+            #    verbose=False, 
+                seed=42):
     torch.manual_seed(seed)
     np.random.seed(seed)
-    
     if torch.cuda.is_available():
         dev = "cuda:0"
         print("cuda: True")
@@ -134,8 +137,8 @@ def train_test(testonly,
     print("Random seed set as", seed)
     
     print('Loading data...')
-    loader, dataset, label_weight, idx2class = prepare_data(data_dir, batch_size, omics, cancers, main_cancer, num_subtypes)
-    train_clf_dl, train_omic_AE_dl = loader
+    train_loader, dataset, label_weight, idx2class = prepare_data(data_dir, batch_size, batch_size_clf, view_list, num_subtypes)
+    train_clf_dl, train_omic_AE_dl = train_loader
     test_clf_ds, val_clf_ds, val_omics_ds = dataset
     
     print('Create result directory...')
@@ -143,33 +146,15 @@ def train_test(testonly,
         os.makedirs(result_dir)
     except:
         print('Result directory already exists!')
-
-    model_dict = init_model_dict(view_list, input_dim, 
-                                 hidden_dims, hidden_dim_cls, num_class, n_samples, dec_var, latent_dim, dropout_rate_cls)
-    model = model_dict['subtype_model']
-    param_groups = [{'params': model.classifier.parameters(), 'lr': lr, 'weight_decay': 1e-4}]
-    for vae_model in model.vae_models:
-        param_groups.append({'params': vae_model.parameters(), 'lr': lr, 'weight_decay': 1e-4})
-    
-    optimizer = torch.optim.Adam(param_groups)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.2)
-    
-    if torch.cuda.is_available():
-        model = model.cuda()
     
     vae_models = []
-    for i, omic in enumerate(omics):
+    for i, omic in enumerate(view_list):
         print(f'Training VAE for {omic.upper()} data...')
-        input_dim = len(val_clf_ds[0][i])
-        hidden_dims = [1024, 512]  
+        input_dim_omic = len(val_clf_ds[0][i])
+        vae_model_omic = VariationalAutoencoder(input_dim_omic, hidden_dims_omics[i], n_samples[i], dec_vars[i], latent_dims[i])
+        vae_model_omic.to(device)
+        train_his, val_his = train_VAE(vae_model_omic, train_omic_AE_dl[i], val_omics_ds[i], epoch_pretrain_vaes[i], lr_pretrain_vaes[i])
 
-        vae_model = VariationalAutoencoder(input_dim, hidden_dims, dropout_rate=0.5, latent_dim=128)
-        vae_model.n_samples = n_samples
-        vae_model.dec_var = dec_var
-        vae_model.to(device)
-        
-        train_his, val_his = train_VAE(vae_model, train_omic_AE_dl[i], val_omics_ds[i], n_epoch_omics[i], lr_omics[i], n_samples, dec_var)
-        
         plt.figure()
         plt.plot(train_his, label='train')
         plt.plot(val_his, label='validation')
@@ -177,20 +162,17 @@ def train_test(testonly,
         plt.savefig(os.path.join(result_dir, f'{omic}_training.png'))
         plt.clf()
         
-        vae_models.append(vae_model)
+        vae_models.append(vae_model_omic)
     
     print('\nTraining fusion model with VAE latent representations...\n')
-    # Create Subtyping_model with VAE models
-    clf = Subtyping_model(vae_models, hidden_dim_cls=512, num_class=len(label_weight), dropout_rate_cls=0.3)
+    clf = Subtyping_model(vae_models, hidden_dim_cls, num_class, dropout_rate_cls)
     clf.to(device)
     label_weight = label_weight.to(device)
     
     print("Training...")
-    # Train classifier using VAE latent representations
     clf_train_his, clf_val_his = train_clf(clf, label_weight, 
-                                         train_clf_dl, val_clf_ds, 
-                                         n_epoch_classifier, patience, lr_clf, 
-                                         lr_AE, wd_clf, wd_AE)
+                                            train_clf_dl, val_clf_ds, 
+                                         epoch_cls, patience, lr_clf, lr_vae, wd_clf, wd_vae)
     
     plt.figure()
     plt.plot(clf_train_his[0], label='train loss')
@@ -210,4 +192,3 @@ def train_test(testonly,
     print('Results saved in the result folder!')
     
     return clf
-

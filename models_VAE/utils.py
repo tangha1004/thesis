@@ -43,43 +43,30 @@ class EarlyStopping:
         self.metric_higher_better_max = metric_higher_better
         self.best_epoch = epoch
 
-def prepare_data(data_dir, batch_size, omics, cancers, main_cancer, num_subtypes, print_info=True):
-    unlabel_omics_data = [1] * len(omics)
+def prepare_data(data_dir, batch_size, batch_size_clf, view_list, num_subtypes, print_info=True):
+    unlabel_omics_data = [1] * len(view_list)
     X_train_omics_clf = []
     X_val_omics = []
     X_test_omics = []
     train_omics_unlabeled = []
-    for i, omic in enumerate(omics):
+    for i, omic in enumerate(view_list):
         train_one_omic_unlabeled = []
-        for cancer in cancers:
-            tmp = []
-            try:
-                tmp = pd.read_csv(os.path.join(data_dir, f'{cancer}_{i+1}_tr_unlabeled.csv')).to_numpy()
-                train_one_omic_unlabeled.append(tmp)
-            except:
-                if print_info:
-                    print(f'No unlabel {omic.upper()} data found!')
-                unlabel_omics_data[i] = 0
-            
-            train_one_omic_unlabeled.append(tmp)
-            
-            if (cancer == main_cancer):
-                X_train_omics_clf.append(pd.read_csv(os.path.join(data_dir, f'{cancer}_{i+1}_tr.csv'), header=None).to_numpy())
-                X_val_omics.append(pd.read_csv(os.path.join(data_dir, f'{cancer}_{i+1}_val.csv'), header=None).to_numpy())
-                X_test_omics.append(pd.read_csv(os.path.join(data_dir, f'{cancer}_{i+1}_te.csv'), header=None).to_numpy())
-        train_one_omic_unlabeled_concencated = np.vstack(train_one_omic_unlabeled)
-        train_omics_unlabeled.append(train_one_omic_unlabeled_concencated)
+        train_one_omic_unlabeled = pd.read_csv(os.path.join(data_dir, f'{i+1}_tr_unlabeled.csv')).to_numpy()
+        train_omics_unlabeled.append(train_one_omic_unlabeled)
 
-    
-    train_label = pd.read_csv(os.path.join(data_dir, f'{main_cancer}_labels_tr.csv'), header=None).to_numpy()
-    val_label = pd.read_csv(os.path.join(data_dir, f'{main_cancer}_labels_val.csv'), header=None).to_numpy()
-    test_label = pd.read_csv(os.path.join(data_dir, f'{main_cancer}_labels_te.csv'), header=None).to_numpy()
+        X_train_omics_clf.append(pd.read_csv(os.path.join(data_dir, f'{i+1}_tr.csv'), header=None).to_numpy())
+        X_val_omics.append(pd.read_csv(os.path.join(data_dir, f'{i+1}_val.csv'), header=None).to_numpy())
+        X_test_omics.append(pd.read_csv(os.path.join(data_dir, f'{i+1}_te.csv'), header=None).to_numpy())
+
+    train_label = pd.read_csv(os.path.join(data_dir, f'labels_tr.csv'), header=None).to_numpy()
+    val_label = pd.read_csv(os.path.join(data_dir, f'labels_val.csv'), header=None).to_numpy()
+    test_label = pd.read_csv(os.path.join(data_dir, f'labels_te.csv'), header=None).to_numpy()
 
     y_train = torch.tensor(train_label, dtype=torch.int64).squeeze()
     y_val = torch.tensor(val_label, dtype=torch.int64).squeeze()
     y_test = torch.tensor(test_label, dtype=torch.int64).squeeze()
 
-    with open(os.path.join(data_dir, f'{main_cancer}_dct_index_subtype.json')) as file_json_id_label:
+    with open(os.path.join(data_dir, f'dct_index_subtype.json')) as file_json_id_label:
         dct_LABEL_MAPPING_NAME = json.load(file_json_id_label)
     ord_subtype_name = list(dct_LABEL_MAPPING_NAME.values())
     if print_info:
@@ -91,7 +78,7 @@ def prepare_data(data_dir, batch_size, omics, cancers, main_cancer, num_subtypes
         print('Weight for these classes:', label_weight)
 
     X_train_omics_AE = []
-    for i in range(len(omics)):
+    for i in range(len(view_list)):
         if unlabel_omics_data[i] == 1:
             print(X_train_omics_clf[i].shape)
             print(train_omics_unlabeled[i].shape)
@@ -108,13 +95,6 @@ def prepare_data(data_dir, batch_size, omics, cancers, main_cancer, num_subtypes
     train_clf_ds = TensorDataset(*X_train_omics_clf, y_train)
     val_clf_ds = TensorDataset(*X_val_omics, y_val)
     test_clf_ds = TensorDataset(*X_test_omics, y_test)
-
-    if 'BRCA' in data_dir:
-        batch_size_clf = batch_size * 2
-    elif 'CRC' in data_dir:
-        batch_size_clf = batch_size = int(batch_size / 2)
-    else:
-        batch_size_clf = batch_size
 
     train_loader_clf = DataLoader(train_clf_ds, batch_size=batch_size_clf, shuffle=True)
     train_loader_AE = [DataLoader(dataset, batch_size=batch_size, shuffle=True) for dataset in train_omics_AE_ds]
