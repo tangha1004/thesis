@@ -1,5 +1,6 @@
 import sys
 import os
+import ast
 import random
 import numpy as np
 import torch
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     batch_size_clf = int(sys.argv[4])
     view_list = list(map(int, sys.argv[5].strip("[]").split(",")))
     num_subtypes = int(sys.argv[6])
-    hidden_dims = list(map(int, sys.argv[7].strip("[]").split(",")))
+    hidden_dims = ast.literal_eval(sys.argv[7])
     n_samples =  list(map(int, sys.argv[8].strip("[]").split(",")))
     dec_vars = list(map(int, sys.argv[9].strip("[]").split(",")))
     latent_dims = list(map(int, sys.argv[10].strip("[]").split(",")))
